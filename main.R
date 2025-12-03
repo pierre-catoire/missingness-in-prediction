@@ -1,28 +1,34 @@
-source("R/01_data.R")
-source("R/02_methods.R")
-source("R/03_metrics.R")
-source("R/04_plotting.R")
+source("01_data.R")
+source("02_methods.R")
+source("03_metrics.R")
+source("04_plotting.R")
 
-n = 20
+library(parallel)
+
+set.seed(42)
+
+message("Number of cores: ", detectCores())
+
+n = 1000
 
 theta = list(X1 = list(mu = 0, sigma = 1),
              X2 = list(mu = 0, sigma = 1),
-             Y = list(beta = c(0,1,1), sigma = .5))
+             Y = list(beta = c(0,1,-1), sigma = 1.3))
 
 phi = list("M1" = c(0,0,0,0),
-           "M2" = c(0,0,1,0),
-           "M3" = c(0,1,0,0),
-           "M4" = c(0,1,0,1),
+           "M2" = c(0,0,-1,0),
+           "M3" = c(0,-2,0,0),
+           "M4" = c(0,-1,0,1),
            "M5" = c(0,0,0,1))
 
-missCoefs = seq(0,0.7,by = 0.1)
+missCoefs = seq(0,0.7,by = 0.01)
 
 methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                                "predict" = PredictPatternSubmodels),
-                   "MARG" = list("fit" = fitMarg,
-                                 "predict" = PredictMarg),
-                   "MARGMI" = list("fit" = FitMargMI,
-                                   "predict" = PredictMargMI),
+                   "CCS" = list("fit" = FitCompleteCasesSubmodels,
+                               "predict" = PredictCompleteCasesSubmodels),
+                   "MARG" = list("fit" = FitMarginalisation,
+                                 "predict" = PredictMarginalisation),
                    "UI" = list("fit" = FitUnconditionalImputation,
                                "predict" = PredictUnconditionalImputation),
                    "SCI" = list("fit" = FitSingleConditionalImputation,
@@ -34,8 +40,8 @@ methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                    "MIMI" = list("fit" = FitMultipleImputationMI,
                                  "predict" = PredictMultipleImputationMI))
 
-methodsKeys = c("PS","MARG","MARGMI","UI","SCI","SCIMI","MI","MIMI")
-metrics = c("MSPE-OMU","MSPE-OMC","MSE")
+methodsKeys = c("PS","CCS","MARG","UI","SCI","SCIMI","MI","MIMI")
+metrics = c("MSPE_OMU","MSPE_OMC","MSE")
 
 datasetList = list()
 predictions = list()
@@ -50,7 +56,7 @@ for(model in names(phi)){
   performanceMetrics[[model]] = list("MISSPROP" = numeric())
   for(metric in metrics){
     performanceMetrics[[model]][[metric]] = list()
-    for(methodKey in methodsKeys){
+    for(methodKey in c(methodsKeys,"PRAGMATIC_MU","PRAGMATIC_MC")){
       performanceMetrics[[model]][[metric]][[methodKey]] = numeric()
     }
   }
@@ -60,14 +66,10 @@ for(model in names(phi)){
     predictions[[model]][[i]] = list()
     missCoef = missCoefs[i]
     message(missCoef)
-    
+    start = Sys.time()
     # --- Generate the training and testing datasets ---
-    dTrain = SimulateDataContinuous(n,theta,phi[[model]],missCoef, seed = 42, n_mc = 1e5, type = "train")
-    dTest = SimulateDataContinuous(n,theta,phi[[model]],missCoef, seed = 42, n_mc = 1e5, type = "test")
-    
-    # --- Store the datasets ---
-    datasetList[[model]][["TRAIN"]][[i]] = dTrain
-    datasetList[[model]][["TEST"]][[i]] = dTest
+    dTrain = SimulateDataContinuous(n,theta,phi[[model]],missCoef, n_mc = 1e4, type = "train")
+    dTest = SimulateDataContinuous(n,theta,phi[[model]],missCoef, n_mc = 1e4, type = "test")
     
     # --- Store the realised proportion of missingness in the testing set ---
     performanceMetrics[[model]][["MISSPROP"]][[i]] = mean(dTest[["M1"]])
@@ -78,6 +80,10 @@ for(model in names(phi)){
     predictions[[model]][[i]][["PRAGMATIC_MU"]] = dTest[["PRAGMATIC_MU"]]
     predictions[[model]][[i]][["PRAGMATIC_MC"]] = dTest[["PRAGMATIC_MC"]]
     predictions[[model]][[i]][["Y"]] = dTest[["Y"]]
+    
+    # --- Store the datasets ---
+    datasetList[[model]][["TRAIN"]][[i]] = dTrain
+    datasetList[[model]][["TEST"]][[i]] = dTest
       
     # --- Apply each prediction algorithm ---
     for(methodKey in methodsKeys){
@@ -85,17 +91,30 @@ for(model in names(phi)){
       mod = methodsList[[methodKey]][["fit"]](dTrain)
       
       # --- Predict on dTest ---
-      predicted = methodsList[[methodKey]][["predict"]](mod,
-                                                        dTest[,c("X1OBS","X2",'M1')])
+      predicted = methodsList[[methodKey]][["predict"]](mod,dTest[,c("X1OBS","X2",'M1')])
       
       predictions[[model]][[i]][[methodKey]] = predicted
-      performanceMetrics[[model]][["MSPE-OMU"]][[methodKey]][[i]] = ms(predicted,dTest[["ORACLE_MU"]])
-      performanceMetrics[[model]][["MSPE-OMC"]][[methodKey]][[i]] = ms(predicted,dTest[["ORACLE_MC"]])
+      performanceMetrics[[model]][["MSPE_OMU"]][[methodKey]][[i]] = ms(predicted,dTest[["ORACLE_MU"]])
+      performanceMetrics[[model]][["MSPE_OMC"]][[methodKey]][[i]] = ms(predicted,dTest[["ORACLE_MC"]])
       performanceMetrics[[model]][["MSE"]][[methodKey]][[i]] = ms(predicted,dTest[["Y"]])
     }
+    
+    for(reference in c("PRAGMATIC_MU","PRAGMATIC_MC")){
+      performanceMetrics[[model]][["MSPE_OMU"]][[reference]][[i]] = ms(dTest[[reference]],dTest[["ORACLE_MU"]])
+      performanceMetrics[[model]][["MSPE_OMC"]][[reference]][[i]] = ms(dTest[[reference]],dTest[["ORACLE_MC"]])
+      performanceMetrics[[model]][["MSE"]][[reference]][[i]] = ms(dTest[[reference]],dTest[["Y"]])
+    }
+    
+   message("Set time: ", Sys.time()-start) 
   }
+  message("Model time: ",Sys.time()-start) 
 }
 
-GeneratePerformanceMetricsTables(performanceMetrics)
-simulated_datasets = MergeDatasets(datasetList,missCoefs,predictions)
-write.csv(simulated_datasets, file = "results/datasets/simulated_datasets_continuous.csv")
+save.image("save.RData")
+
+#performanceMetricsTableList = GeneratePerformanceMetricsTables(performanceMetrics)
+#simulated_datasets = MergeDatasets(datasetList,missCoefs,predictions)
+#write.csv(simulated_datasets, file = "results/datasets/simulated_datasets_continuous.csv")
+#plotPerformanceMetrics(performanceMetricsTableList,
+#                       methodsKeys = c("SCI","MI","MARG","SCIMI","MIMI","UI","PS","CCS"), opacity = .5)
+

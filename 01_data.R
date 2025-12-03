@@ -9,6 +9,7 @@
 
 # Preamble
 library(tidyverse)
+library(parallel)
 
 # Functions
 
@@ -137,9 +138,7 @@ ComputeEYGivenX1X2M1 = function(X1_vec, X2_vec, M1_vec, theta, phi,
 #'
 #' @return Numeric vector of expected Y values, same length as X1_vec.
 #' @export
-SimulateDataContinuous = function(n, theta, phi, missCoef = .5,
-                                  seed = NULL, n_mc = 1e5, type = "train"){
-  if(!is.null(seed)) withr::local_seed(seed)
+SimulateDataContinuous = function(n, theta, phi, missCoef = .5, n_mc = 1e4, type = "train"){
   if(!(type %in% c("train","test"))) stop("type must be either \"train\" or \"test\"")
   
   # --- set phi[1] to match the expected proportion of missingness missCoef ---
@@ -181,13 +180,13 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5,
       theta[["Y"]][["beta"]][3] * X2
     
     # E[Y|X2,M1=1]
-    Y_GIVEN_X2M1 = ComputeEYGivenX2M1_1(X2,theta,phi,n_mc)
+    Y_GIVEN_X2M1 = ComputeEYGivenX2M1_1_parallel(X2,theta,phi,n_mc)
     
     # --- Generate the pragmatic and oracle MU and MC probabilities ---
     
     # Oracle MU: OMU = E[Y|X1,X2]
     # Oracle MC: OMC = E[Y|X1,X2,M]
-    ORACLE_MC = ComputeEYGivenX1X2M1(X1,X2,M1,theta,phi,n_mc)
+    ORACLE_MC = ComputeEYGivenX1X2M1_parallel(X1,X2,M1,theta,phi,n_mc)
     
     # Pragmatic MU: E[Y|X1,X2] if M1 = 0, E[Y|X2] if M1 = 1
     PRAGMATIC_MU = ifelse(M1 == 0, ORACLE_MU, Y_GIVEN_X2)
@@ -203,7 +202,7 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5,
 MergeDatasets = function(datasetList,
                          missCoefs,
                          predictions = NULL,
-                         methodsKeys = c("PS","MARG","MARGMI","UI","SCI","SCIMI","MI","MIMI")){
+                         methodsKeys = c("PS","CCS","MARG","MARGMI","UI","SCI","SCIMI","MI","MIMI")){
   result = list()
   i = 1
   for(model in names(datasetList)){
@@ -232,4 +231,81 @@ MergeDatasets = function(datasetList,
     }
   }
   return(do.call(rbind, result))
+}
+
+ComputeEYGivenX1X2M1_parallel <- function(X1_vec, X2_vec, M1_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
+  stopifnot(length(X1_vec) == length(X2_vec), length(X1_vec) == length(M1_vec))
+  n_points = length(X1_vec)
+  
+  cl = makeCluster(n_cores)
+  clusterExport(cl, varlist = c("X1_vec", "X2_vec", "M1_vec", "theta", "phi", "n_mc", "n_points"), envir = environment())
+  
+  # Split n_mc into chunks
+  chunks = split(1:n_mc, cut(1:n_mc, n_cores, labels = FALSE))
+  
+  results = parLapply(cl, chunks, function(idx) {
+    X1_mat = matrix(rep(X1_vec, each = length(idx)), nrow = length(idx), ncol = n_points)
+    X2_mat = matrix(rep(X2_vec, each = length(idx)), nrow = length(idx), ncol = n_points)
+    
+    mu_Y_mat = theta[["Y"]][["beta"]][1] + 
+      theta[["Y"]][["beta"]][2] * X1_mat + 
+      theta[["Y"]][["beta"]][3] * X2_mat
+    Y_mat = mu_Y_mat + matrix(rnorm(length(idx) * n_points, 0, theta[["Y"]][["sigma"]]),
+                              nrow = length(idx), ncol = n_points)
+    
+    eta_mat = phi[1] + phi[2]*X1_mat + phi[3]*X2_mat + phi[4]*Y_mat
+    p_M1_1_mat = 1 / (1 + exp(-eta_mat))
+    
+    # Compute weights
+    weights_mat = matrix(NA, nrow = length(idx), ncol = n_points)
+    weights_mat[, M1_vec == 1] = p_M1_1_mat[, M1_vec == 1]
+    weights_mat[, M1_vec == 0] = 1 - p_M1_1_mat[, M1_vec == 0]
+    
+    list(Y_mat = Y_mat, weights_mat = weights_mat)
+  })
+  
+  stopCluster(cl)
+  
+  # Combine results
+  Y_all = do.call(rbind, lapply(results, `[[`, "Y_mat"))
+  W_all = do.call(rbind, lapply(results, `[[`, "weights_mat"))
+  
+  EY_vec = colSums(Y_all * W_all) / colSums(W_all)
+  return(EY_vec)
+}
+
+ComputeEYGivenX2M1_1_parallel <- function(X2_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
+  n_X2 = length(X2_vec)
+  cl = makeCluster(n_cores)
+  
+  # Split n_mc into roughly equal chunks
+  chunks = split(1:n_mc, cut(1:n_mc, n_cores, labels = FALSE))
+  
+  # Export variables to cluster
+  clusterExport(cl, varlist = c("X2_vec", "theta", "phi"), envir = environment())
+  
+  results = parLapply(cl, chunks, function(idx) {
+    X1_mc = rnorm(length(idx), mean = theta[["X1"]][["mu"]], sd = theta[["X1"]][["sigma"]])
+    X1_mat = matrix(X1_mc, nrow = length(idx), ncol = n_X2, byrow = FALSE)
+    X2_mat = matrix(X2_vec, nrow = length(idx), ncol = n_X2, byrow = TRUE)
+    
+    mu_Y_mat = theta[["Y"]][["beta"]][1] + 
+      theta[["Y"]][["beta"]][2]*X1_mat + 
+      theta[["Y"]][["beta"]][3]*X2_mat
+    Y_mat = mu_Y_mat + matrix(rnorm(length(idx)*n_X2, 0, theta[["Y"]][["sigma"]]),
+                              nrow = length(idx), ncol = n_X2)
+    eta_mat = phi[1] + phi[2]*X1_mat + phi[3]*X2_mat + phi[4]*Y_mat
+    p_M1_mat = 1 / (1 + exp(-eta_mat))
+    
+    return(list(Y_mat = Y_mat, p_M1_mat = p_M1_mat))
+  })
+  
+  stopCluster(cl)
+  
+  # Combine results
+  Y_all = do.call(rbind, lapply(results, `[[`, "Y_mat"))
+  p_all = do.call(rbind, lapply(results, `[[`, "p_M1_mat"))
+  
+  EY_vec = colSums(Y_all * p_all) / colSums(p_all)
+  return(EY_vec)
 }
