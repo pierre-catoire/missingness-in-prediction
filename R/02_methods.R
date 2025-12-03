@@ -239,34 +239,30 @@ PredictUnconditionalImputation = function(modelUI, dTest){
 }
 
 FitSingleConditionalImputation = function(dTrain){
-  impModel = lm(formula("X1OBS ~ X2*Y"), data = dTrain)
+  impModel = lm(formula("X1OBS ~ X2"), data = dTrain)
   dTrain[dTrain[["M1"]] == 1,"X1OBS"] = predict(impModel,
-                                                newdata = dTrain[dTrain[["M1"]] == 1,
-                                                                 c("X2","Y")])
+                                                newdata = dTrain[dTrain[["M1"]] == 1,])
   list(predModel = lm(formula("Y ~ X1OBS + X2"), data = dTrain),
        impModel = impModel)
 }
 
 PredictSingleConditionalImputation = function(modelSCI,dTest){
   dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelSCI[["impModel"]],
-                                                newdata = dTest[dTest[["M1"]] == 1,
-                                                                 c("X2","Y")])
+                                                newdata = dTest[dTest[["M1"]] == 1,])
   predict(modelSCI[["predModel"]],newdata = dTest[,c("X1OBS","X2")])
 }
 
 FitSingleConditionalImputationMI = function(dTrain){
-  impModel = lm(formula("X1OBS ~ X2*Y"), data = dTrain[dTrain[["M1"]] == 0,
-                                                       c("X1OBS","X2","Y")])
+  impModel = lm(formula("X1OBS ~ X2"), data = dTrain[dTrain[["M1"]] == 0,])
   dTrain[dTrain[["M1"]] == 1,"X1OBS"] = predict(impModel,
-                                                newdata = dTrain[dTrain[["M1"]] == 1,
-                                                                 c("X2","Y")])
+                                                newdata = dTrain[dTrain[["M1"]] == 1,])
   list(predModel = lm(formula("Y ~ X1OBS*X2*M1"), data = dTrain),
        impModel = impModel)
 }
 
 PredictSingleConditionalImputationMI = function(modelSCIMI, dTest){
   dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelSCIMI[["impModel"]],
-                                              newdata = dTest[dTest[["M1"]] == 1,c("X2","Y")])
+                                              newdata = dTest[dTest[["M1"]] == 1,])
   predict(modelSCIMI[["predModel"]],newdata = dTest[,c("X1OBS","X2","M1")])
 }
 
@@ -277,7 +273,7 @@ FitMultipleImputation = function(dTrain, m = 5, method = "norm"){
                 impModel = list(),
                 predModel = list())
   for(impSet in 1:m){
-    result[["impModel"]][[impSet]] = lm(formula("X1OBS ~ X2*Y"),
+    result[["impModel"]][[impSet]] = lm(formula("X1OBS ~ X2"),
                                         data = complete(imp,impSet))
     result[["predModel"]][[impSet]] = lm(formula("Y ~ X1OBS*X2"),
                                         data = complete(imp,impSet))
@@ -289,11 +285,11 @@ PredictMultipleImputation = function(modelMI, dTest){
   result = list()
   for(m in 1:modelMI[["m"]]){
     dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMI[["impModel"]][[m]],
-                                                newdata = dTest[dTest[["M1"]] == 1,c("X2","Y")])
+                                                newdata = dTest[dTest[["M1"]] == 1,])
     result[[m]] = predict(modelMI[["predModel"]][[m]],
                           newdata = dTest[,c("X1OBS","X2","M1")])
   }
-  return(result)
+  return(Reduce(`+`, result) / length(result))
 }
 
 FitMultipleImputationMI = function(dTrain, m = 5, method = "norm"){
@@ -306,7 +302,7 @@ FitMultipleImputationMI = function(dTrain, m = 5, method = "norm"){
                 impModel = list(),
                 predModel = list())
   for(impSet in 1:m){
-    result[["impModel"]][[impSet]] = lm(formula("X1OBS ~ X2*Y"),
+    result[["impModel"]][[impSet]] = lm(formula("X1OBS ~ X2"),
                                         data = complete(imp,impSet)[dTest[["M1"]] == 0,])
     result[["predModel"]][[impSet]] = lm(formula("Y ~ X1OBS*X2*M1"),
                                          data = complete(imp,impSet))
@@ -318,9 +314,9 @@ PredictMultipleImputationMI = function(modelMIMI, dTest){
   result = list()
   for(m in 1:modelMIMI[["m"]]){
     dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMIMI[["impModel"]][[m]],
-                                                newdata = dTest[dTest[["M1"]] == 1,c("X2","Y")])
+                                                newdata = dTest[dTest[["M1"]] == 1,])
     result[[m]] = predict(modelMIMI[["predModel"]][[m]],
                           newdata = dTest[,c("X1OBS","X2","M1")])
   }
-  return(result)
+  return(Reduce(`+`, result) / length(result))
 }

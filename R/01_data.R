@@ -64,7 +64,7 @@ ComputeEYGivenX2M1_1 = function(X2_vec, theta, phi, n_mc = 1e5) {
   # 4. Sample Y
   Y_mat = mu_Y_mat + matrix(rnorm(n_mc * n_X2, mean = 0,
                                   sd = theta[["Y"]][["sigma"]]), 
-                             nrow = n_mc, ncol = n_X2)
+                            nrow = n_mc, ncol = n_X2)
   
   # 5. Compute probability M1=1
   eta_mat = phi[1] + phi[2]*X1_mat + phi[3]*X2_mat + phi[4]*Y_mat
@@ -90,7 +90,7 @@ ComputeEYGivenX2M1_1 = function(X2_vec, theta, phi, n_mc = 1e5) {
 #'
 #' @return Numeric vector of expected Y values, same length as X1_vec.
 ComputeEYGivenX1X2M1 = function(X1_vec, X2_vec, M1_vec, theta, phi,
-                                   n_mc = 1e5) {
+                                n_mc = 1e5) {
   stopifnot(length(X1_vec) == length(X2_vec), length(X1_vec) == length(M1_vec))
   n_points = length(X1_vec)
   
@@ -106,7 +106,7 @@ ComputeEYGivenX1X2M1 = function(X1_vec, X2_vec, M1_vec, theta, phi,
   # 3. Sample Y
   Y_mat = mu_Y_mat + matrix(rnorm(n_mc * n_points, mean = 0,
                                   sd = theta[["Y"]][["sigma"]]),
-                             nrow = n_mc, ncol = n_points)
+                            nrow = n_mc, ncol = n_points)
   
   # 4. Compute probability M1=1
   eta_mat = phi[1] + phi[2]*X1_mat + phi[3]*X2_mat + phi[4]*Y_mat
@@ -138,8 +138,9 @@ ComputeEYGivenX1X2M1 = function(X1_vec, X2_vec, M1_vec, theta, phi,
 #' @return Numeric vector of expected Y values, same length as X1_vec.
 #' @export
 SimulateDataContinuous = function(n, theta, phi, missCoef = .5,
-                                    seed = NULL, n_mc = 1e5){
+                                  seed = NULL, n_mc = 1e5, type = "train"){
   if(!is.null(seed)) withr::local_seed(seed)
+  if(!(type %in% c("train","test"))) stop("type must be either \"train\" or \"test\"")
   
   # --- set phi[1] to match the expected proportion of missingness missCoef ---
   # NB: if missCoef == 0, phi does not matter
@@ -164,34 +165,71 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5,
     M1 = rep(0,n)
   }
   
-  # --- Generate the expected values of Y ---
-  # Note: these quantities are used for estimate missingness-conditioned (MC)
-  # and Missingness-Unconditioned (MU) probabilities
-  
-  # E[Y|X2]
-  Y_GIVEN_X2 = theta[["Y"]][["beta"]][1] + 
-    theta[["Y"]][["beta"]][2] * theta[["X1"]][["mu"]] + 
-    theta[["Y"]][["beta"]][3] * X2
-  
-  # E[Y|X2,M1=1]
-  Y_GIVEN_X2M1 = ComputeEYGivenX2M1_1(X2,theta,phi,n_mc)
-  
-  # Oracle MU: OMU = E[Y|X1,X2]
-  # Oracle MC: OMC = E[Y|X1,X2,M]
-  ORACLE_MC = ComputeEYGivenX1X2M1(X1,X2,M1,theta,phi,n_mc)
-  
-  # Pragmatic MU: E[Y|X1,X2] if M1 = 0, E[Y|X2] if M1 = 1
-  PRAGMATIC_MU = ifelse(M1 == 0, ORACLE_MU, Y_GIVEN_X2)
-  
-  # PRAGMATIC_MC: E[Y|X1,X2,M1=0] if M1 = 0, E[Y|X2,M1=1] if M1 = 1
-  PRAGMATIC_MC = ifelse(M1 == 0, ORACLE_MC, Y_GIVEN_X2M1)
-  
-  # --- Generate the pragmatic and oracle MU and MC probabilities ---
-  
-  
   # --- Generate observed X1 with missing values ---
   X1OBS = ifelse(M1 == 0, X1, NA)
   
-  return(data.frame(X1,X2,Y,M1,X1OBS,
-                    ORACLE_MU,ORACLE_MC,PRAGMATIC_MU,PRAGMATIC_MC))
+  if(type == "train"){
+    return(data.frame(X1,X2,Y,M1,X1OBS))
+  }else if(type == "test"){
+    # --- Generate the expected values of Y ---
+    # Note: these quantities are used for estimate missingness-conditioned (MC)
+    # and Missingness-Unconditioned (MU) probabilities
+    
+    # E[Y|X2]
+    Y_GIVEN_X2 = theta[["Y"]][["beta"]][1] + 
+      theta[["Y"]][["beta"]][2] * theta[["X1"]][["mu"]] + 
+      theta[["Y"]][["beta"]][3] * X2
+    
+    # E[Y|X2,M1=1]
+    Y_GIVEN_X2M1 = ComputeEYGivenX2M1_1(X2,theta,phi,n_mc)
+    
+    # --- Generate the pragmatic and oracle MU and MC probabilities ---
+    
+    # Oracle MU: OMU = E[Y|X1,X2]
+    # Oracle MC: OMC = E[Y|X1,X2,M]
+    ORACLE_MC = ComputeEYGivenX1X2M1(X1,X2,M1,theta,phi,n_mc)
+    
+    # Pragmatic MU: E[Y|X1,X2] if M1 = 0, E[Y|X2] if M1 = 1
+    PRAGMATIC_MU = ifelse(M1 == 0, ORACLE_MU, Y_GIVEN_X2)
+    
+    # PRAGMATIC_MC: E[Y|X1,X2,M1=0] if M1 = 0, E[Y|X2,M1=1] if M1 = 1
+    PRAGMATIC_MC = ifelse(M1 == 0, ORACLE_MC, Y_GIVEN_X2M1)
+    
+    return(data.frame(X1,X2,Y,M1,X1OBS,
+                      ORACLE_MU,ORACLE_MC,PRAGMATIC_MU,PRAGMATIC_MC))
+  }
+}
+
+MergeDatasets = function(datasetList,
+                         missCoefs,
+                         predictions = NULL,
+                         methodsKeys = c("PS","MARG","MARGMI","UI","SCI","SCIMI","MI","MIMI")){
+  result = list()
+  i = 1
+  for(model in names(datasetList)){
+    j = 1
+    for(missCoef in missCoefs){
+      dTrain = datasetList[[model]][["TRAIN"]][[j]]
+      dTrain[["SET"]] = "TRAIN"
+      dTest = datasetList[[model]][["TRAIN"]][[j]]
+      dTest[["SET"]] = "TEST"
+      
+      for(methodKey in c(methodsKeys)){
+        if(is.null(predictions[[model]][[j]][[methodKey]])){
+          dTest[[methodKey]] = NA
+        }else{
+          dTest[[methodKey]] = predictions[[model]][[j]][[methodKey]]
+        }
+        dTrain[[methodKey]] = NA
+      }
+      
+      dat = rbind(dTrain,dTest)
+      dat[["MISSCOEF"]] = missCoef
+      dat[["MODEL"]] = model
+      result[[i]] = dat
+      j = j+1
+      i = i+1
+    }
+  }
+  return(do.call(rbind, result))
 }
