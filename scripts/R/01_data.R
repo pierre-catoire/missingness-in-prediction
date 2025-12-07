@@ -7,11 +7,11 @@
 #   - induce missing values,
 #   - approximate the oracle and pragmatic targets
 
-# Preamble
+# --- Preamble ---
 library(tidyverse)
 library(parallel)
 
-# Functions
+# --- Functions ---
 
 #' Set the intercept of phi
 #'
@@ -199,41 +199,46 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5, n_mc = 1e4, type
   }
 }
 
+#' Merge the simulated datasets
+#'
+#' @param datasetList a list of simulated datasets
+#' @param missCoefs the vectors of coefficients for missingness proportion
+#'
+#' @return a data.frame of merged simulated datasets
 MergeDatasets = function(datasetList,
-                         missCoefs,
-                         predictions = NULL,
-                         methodsKeys = c("PS","CCS","MARG","MARGMI","UI","SCI","SCIMI","MI","MIMI")){
+                         missCoefs){
   result = list()
   i = 1
   for(model in names(datasetList)){
-    j = 1
-    for(missCoef in missCoefs){
-      dTrain = datasetList[[model]][["TRAIN"]][[j]]
+    for(i in 1:length(datasetList[[model]][["TRAIN"]])){
+      dTrain = datasetList[[model]][["TRAIN"]][[i]]
       dTrain[["SET"]] = "TRAIN"
-      dTest = datasetList[[model]][["TRAIN"]][[j]]
+      dTest = datasetList[[model]][["TEST"]][[i]]
       dTest[["SET"]] = "TEST"
-      
-      for(methodKey in c(methodsKeys)){
-        if(is.null(predictions[[model]][[j]][[methodKey]])){
-          dTest[[methodKey]] = NA
-        }else{
-          dTest[[methodKey]] = predictions[[model]][[j]][[methodKey]]
-        }
-        dTrain[[methodKey]] = NA
-      }
-      
-      dat = rbind(dTrain,dTest)
-      dat[["MISSCOEF"]] = missCoef
+      dat = dplyr::bind_rows(dTrain,dTest)
       dat[["MODEL"]] = model
+      dat[["MISSCOEF"]] = missCoef
       result[[i]] = dat
-      j = j+1
-      i = i+1
     }
   }
   return(do.call(rbind, result))
 }
 
-ComputeEYGivenX1X2M1_parallel <- function(X1_vec, X2_vec, M1_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
+#' Compute E[Y | X1, X2, M1]
+#'
+#' This function computes the expected value of Y given X1, X2 and M1, which
+#' is used for computation of the MC probability reference.
+#'
+#' @param X1_vec the vector of realised values of X1
+#' @param X2_vec the vector of realised values of X2
+#' @param M1_vec the vector of realised values of M1
+#' @param theta the vector of parameters of Pr(Y, X1, X2)
+#' @param phi the vector of parameters of Pr(Y | X1, X2, M1)
+#' @param n_mc the number of samples of Monte Carlo simulation
+#' @param n_cores the number of processors (for parallelisation)
+#' 
+#' @return the vector of E[Y | X1, X2, M1]
+ComputeEYGivenX1X2M1_parallel = function(X1_vec, X2_vec, M1_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
   stopifnot(length(X1_vec) == length(X2_vec), length(X1_vec) == length(M1_vec))
   n_points = length(X1_vec)
   
@@ -274,7 +279,19 @@ ComputeEYGivenX1X2M1_parallel <- function(X1_vec, X2_vec, M1_vec, theta, phi, n_
   return(EY_vec)
 }
 
-ComputeEYGivenX2M1_1_parallel <- function(X2_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
+#' Compute E[Y | X2, M1 = 1]
+#'
+#' This function computes the expected value of Y given X1, X2 and M1 = 1, which
+#' is used for computation of the MC probability reference.
+#'
+#' @param X2_vec the vector of realised values of X2
+#' @param theta the vector of parameters of Pr(Y, X1, X2)
+#' @param phi the vector of parameters of Pr(Y | X1, X2, M1)
+#' @param n_mc the number of samples of Monte Carlo simulation
+#' @param n_cores the number of processors (for parallelisation)
+#' 
+#' @return the vector of E[Y | X2, M1 = 1]
+ComputeEYGivenX2M1_1_parallel = function(X2_vec, theta, phi, n_mc = 1e5, n_cores = detectCores() - 1) {
   n_X2 = length(X2_vec)
   cl = makeCluster(n_cores)
   
