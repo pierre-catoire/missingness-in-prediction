@@ -1,9 +1,16 @@
 library(scales)
 
-plotPerformanceMetrics = function(performanceMetricsTableList,
+plotPerformanceMetrics = function(performanceMetrics,
                                   methodsKeys = c("SCI","MI","MARG","SCIMI","MIMI","UI","PS","CCS"),
                                   graphParameters = NULL,
-                                  opacity = .2){
+                                  opacity = 1,
+                                  ylims = list("MSPE_OMU" = c(0,1.5),
+                                               "MSPE_OMC" = c(0,1.5),
+                                               "MSE" = c(0,5)),
+                                  models = c("M1","M2","M3","M4","M5"),
+                                  references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
+                                  metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
+                                  savePDF = F){
   
   if(is.null(graphParameters)){
     MC_colors = hue_pal(h = c(0, 90))(5)
@@ -57,20 +64,14 @@ plotPerformanceMetrics = function(performanceMetricsTableList,
                                                  "color" = "darkblue",
                                                  "lty" = 2,
                                                  "pch" = 16,
-                                                 "cex" = .5),
+                                                 "cex" = 0),
                            "PRAGMATIC_MC" = list("label" = "MC probability (ref)",
                                                  "color" = "darkred",
                                                  "lty" = 2,
                                                  "pch" = 16,
-                                                 "cex" = .5))
+                                                 "cex" = 0))
   }
-  
-  
-  
-  references = c("PRAGMATIC_MU","PRAGMATIC_MC")
-  ylims = list("MSPE_OMU" = c(0,1.5),
-               "MSPE_OMC" = c(0,1.5),
-               "MSE" = c(0,5))
+  # Create vectors of methodLabels, colors, line types to pass to legend
   methodsLabels = c()
   cols = c()
   ltys = c()
@@ -85,44 +86,60 @@ plotPerformanceMetrics = function(performanceMetricsTableList,
     i=i+1
   }
   
+  modelLabels = setNames(c("Model 1", "Model 2","Model 3", "Model 4", "Model 5"),
+                         c("M1","M2","M3","M4","M5"))
   metricsLabels = setNames(c("Mean Squared Prediction Error (Oracle MU reference)",
                              "Mean Squared Predictions Error (Oracle MC reference)",
                              "Mean Squared Error"),
-                           c("MSPE_OMU","MSPE_OMC","MSE"))
+                           metrics)
   
-  for(model in names(performanceMetricsTableList)){
-    par(mfrow = c(1,length(performanceMetricsTableList[[model]])))
-    for(metric in names(performanceMetricsTableList[[model]])){
-      plot(1, type = "n",
-           frame.plot = FALSE,
-           xlab = "Missingness proportion",
-           ylab = metricsLabels[metric],
-           xlim = c(0, 0.7), 
-           ylim = ylims[[metric]],
-           main = paste(model,", ", metric, sep = ""))
-      for(methodKey in c(methodsKeys,references)){
-        points(performanceMetricsTableList[[model]][[metric]][["points"]][["MISSPROP"]],
-               performanceMetricsTableList[[model]][[metric]][["points"]][[methodKey]],
-               col = adjustcolor(graphParameters[[methodKey]][["color"]],
-                                 alpha.f = opacity),
-               pch = graphParameters[[methodKey]][["pch"]],
-               cex = graphParameters[[methodKey]][["cex"]])
-        lines(performanceMetricsTableList[[model]][[metric]][["loess"]][["MISSPROP"]],
-              performanceMetricsTableList[[model]][[metric]][["loess"]][[methodKey]],
-              col = graphParameters[[methodKey]][["color"]],
-              lty = graphParameters[[methodKey]][["lty"]])
+  analysisGroupLabels = setNames(c("All cases","Complete cases","Incomplete cases"),
+                                 c("ALL","COMPLETE","INCOMPLETE"))
+  
+  for(model in models){
+    for(analysis in c("ALL","SUBGROUPS")){
+      if(savePDF){
+        pdf(paste(paste("outputs/continuous/plots/plot",model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
       }
-      legend("topleft",
-             bg="transparent",
-             bty = "n",
-             legend = methodsLabels[c(methodsKeys,references)],
-             lty = ltys,
-             col= cols)
+      if(analysis == "ALL"){
+        analysisGroups = "ALL"
+        par(mfrow = c(1,length(metrics)))
+      }
+      else if(analysis == "SUBGROUPS"){
+        par(mfrow = c(2,length(metrics)))
+        analysisGroups = c("COMPLETE","INCOMPLETE")
+      }
+      for(analysisGroup in analysisGroups){
+        for(metric in metrics){
+          plot(1, type = "n",
+               frame.plot = FALSE,
+               xlab = "Missingness proportion",
+               ylab = metricsLabels[metric],
+               xlim = c(0, 0.7), 
+               ylim = ylims[[metric]])
+          title(main = paste(modelLabels[model], analysisGroupLabels[analysisGroup], sep = ", "))
+          
+          for(methodKey in c(methodsKeys,references)){
+            points(performanceMetrics[[model]][["MISSPROP"]],
+                   performanceMetrics[[model]][[analysisGroup]][[metric]][[methodKey]][["POINTS"]],
+                   col = adjustcolor(graphParameters[[methodKey]][["color"]],
+                                     alpha.f = opacity),
+                   pch = graphParameters[[methodKey]][["pch"]],
+                   cex = graphParameters[[methodKey]][["cex"]])
+            lines(performanceMetrics[["LOESSSEQ"]],
+                  performanceMetrics[[model]][[analysisGroup]][[metric]][[methodKey]][["LOESS"]],
+                  col = graphParameters[[methodKey]][["color"]],
+                  lty = graphParameters[[methodKey]][["lty"]])
+          }
+          legend("topleft",
+                 bg="transparent",
+                 bty = "n",
+                 legend = methodsLabels[c(methodsKeys,references)],
+                 lty = ltys,
+                 col= cols)
+        }
+      }
+      if(savePDF){dev.off()}
     }
   }
 }
-
-# Issues:
-# - CCS gives same as PS
-# - MI and SCI give always MU ???
-# - MIMI and SCIMI biased for MNAR

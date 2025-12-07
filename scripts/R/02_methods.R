@@ -7,8 +7,8 @@
 # - perform the prediction on a testing set
 
 # Preamble
-library(tidyverse)
-library(mice)
+require(tidyverse)
+require(mice)
 
 # Functions
 FitPatternSubmodels = function(dTrain){
@@ -89,92 +89,36 @@ PredictCompleteCasesSubmodels = function(modelCCS,dTest){
   return(result)
 }
 
-FitMarginalisation = function(dTrain, tol = 1e-8, max_iter = 100) {
-  
-  X1OBS = dTrain[["X1OBS"]]
-  X2 = dTrain[["X2"]]
-  Y = dTrain[["Y"]]
-  M1 = dTrain[["M1"]]
-  # Initialize parameters
-  thetaEM = list(
-    X1 = list(mu = mean(X1OBS, na.rm = TRUE),
-              sigma = sd(X1OBS, na.rm = TRUE)),
-    Y  = list(beta = rep(0, 4), sigma = 1)
-  )
-  
-  # Initial regression using complete cases
-  obs_idx = which(!is.na(X1OBS))
-  modY = lm(Y[obs_idx] ~ X1OBS[obs_idx]*X2[obs_idx])
-  thetaEM$Y$beta = coef(modY)
-  thetaEM$Y$sigma = sigma(modY)
-  
-  iter = 1
-  converged = FALSE
-  
-  while(iter <= max_iter && !converged){
-    
-    thetaEM_old = thetaEM
-    
-    # --- E-step: expected X1 for missing values ---
-    miss_idx = M1 == 1
-    if(length(miss_idx) > 0){
-      # Posterior of X1 | Y, X2 for missing
-      beta0 = thetaEM$Y$beta[1]
-      beta1 = thetaEM$Y$beta[2]
-      beta2 = thetaEM$Y$beta[3]
-      sigma_y = thetaEM$Y$sigma
-      mu_X1 = thetaEM$X1$mu
-      sigma_X1 = thetaEM$X1$sigma
-      
-      # Standard normal conditioning formula:
-      # X1 | Y, X2 ~ N(mean_post, var_post)
-      var_post = 1 / (1/sigma_X1^2 + beta1^2 / sigma_y^2)
-      mean_post = var_post * (mu_X1 / sigma_X1^2 + beta1 * (Y[miss_idx] - beta0 - beta2*X2[miss_idx]) / sigma_y^2)
-      
-      X1OBS[miss_idx] = mean_post
-    }
-    
-    # --- M-step: update parameters using completed data ---
-    modY = lm(Y ~ X1OBS*X2)
-    thetaEM$Y$beta = coef(modY)
-    thetaEM$Y$sigma = sigma(modY)
-    
-    thetaEM$X1$mu = mean(X1OBS)
-    thetaEM$X1$sigma = sd(X1OBS)
-    
-    # --- Convergence check ---
-    max_change = max(
-      abs(thetaEM$X1$mu - thetaEM_old$X1$mu) / abs(thetaEM_old$X1$mu),
-      abs(thetaEM$X1$sigma - thetaEM_old$X1$sigma) / abs(thetaEM_old$X1$sigma),
-      max(abs(thetaEM$Y$beta - thetaEM_old$Y$beta) / abs(thetaEM_old$Y$beta)),
-      abs(thetaEM$Y$sigma - thetaEM_old$Y$sigma) / abs(thetaEM_old$Y$sigma)
-    )
-    
-    if(max_change < tol) converged = TRUE
-    iter = iter + 1
-  }
-  
-  if(!converged) warning("EM did not converge")
-  return(list("Y" = modY,
-              "X1" = mean(X1OBS),
-              "iter" = iter,
-              "converged" = converged))
+FitMarginalisation = function(dTrain){
+  require(norm)
+  dMat = as.matrix(dTrain[,c("X1OBS","X2","Y")])
+  s = prelim.norm(dMat)
+  theta = em.norm(s,showits=F)
+  params = getparam.norm(s,theta)
+  names(params[["mu"]]) = c("X1OBS","X2","Y")
+  colnames(params[["sigma"]]) = c("X1OBS","X2","Y")
+  rownames(params[["sigma"]]) = c("X1OBS","X2","Y")
+  return(params)
 }
 
-PredictMarginalisation = function(modelMarg,dTest){
-  result = rep(NA,nrow(dTest))
-  # --- E(Y|X1,X2) ---
-  result[dTest[["M1"]] == 0] = predict(modelMarg[["Y"]],dTest[dTest[["M1"]]== 0,])
+PredictMarginalisation = function(modelMarg, dTest){
+  mu = modelMarg[["mu"]]
+  sigma_XX = modelMarg[["sigma"]][c("X1OBS","X2"),c("X1OBS","X2")]
+  sigma_YX = modelMarg[["sigma"]]["Y",c("X1OBS","X2")]
   
-  # --- E(Y|X2) = B0 + B1mu1 + B2X2 + B3X2mu1 ---
-  if(any(dTest[["M1"]] == 1)){
-    result[dTest[["M1"]] == 1] = cbind(1,
-                                       modelMarg[["X1"]],
-                                       dTest[dTest[["M1"]] == 1,"X2"],
-                                       modelMarg[["X1"]]*dTest[dTest[["M1"]] == 1,"X2"]) %*% coef(modelMarg[["Y"]])
-  }
-  return(result)
+  X_centered = cbind(dTest[["X1OBS"]] - mu["X1OBS"],
+                     dTest[["X2"]] - mu["X2"]) 
+  
+  predicted = as.vector(mu["Y"] + X_centered %*% solve(sigma_XX) %*% sigma_YX)
+  
+  sigma_YX2 = modelMarg[["sigma"]]["Y","X2"]
+  sigma_X2 = modelMarg[["sigma"]]["X2","X2"]
+  
+  predictedY_X2 = mu[["Y"]] + sigma_YX2 / sigma_X2 * (dTest[["X2"]] - mu[["X2"]])
+  predicted[dTest[["M1"]] == 1] = predictedY_X2[dTest[["M1"]] == 1]
+  return(predicted)
 }
+
 
 FitUnconditionalImputation = function(dTrain, mode = "mean", constant = 0){
   if(!(mode %in% c("mean","median","constant"))) stop("Mode must be \"mean\", \"median\" or \"constant\"")
@@ -193,28 +137,30 @@ PredictUnconditionalImputation = function(modelUI, dTest){
   predict(modelUI[["predModel"]],newdata = dTest)
 }
 
-FitSingleConditionalImputation = function(dTrain){
-  impModelEstimation = lm(X1OBS ~ X2*Y, data = dTrain[dTrain[["M1"]] == 0,])
-  dTrain[["X1IMP"]] = dTrain[["X1OBS"]]
-  dTrain[dTrain[["M1"]] == 1,"X1IMP"] = predict(impModelEstimation,
-                                                newdata = dTrain[dTrain[["M1"]] == 1,])
+FitSingleConditionalImputation = function(dTrain, m = 5){
+  imp = mice(dTrain[,c("X1OBS","X2","Y")],
+             m = m, method = "norm", printFlag = F)
+  poolImp = pool(with(data=imp,exp=lm(formula("X1OBS ~ X2"))))
+  impModel = setNames(poolImp[,"pooled"][,"estimate"],
+                      poolImp[,"pooled"][,"term"])
   
-  ## Fit the imputation function
-  impModelDeployment = lm(X1IMP ~ X2, data = dTrain)
+  poolPred = pool(with(data=imp,exp=lm(formula("Y ~ X1OBS*X2"))))
+  predModel = setNames(poolPred[,"pooled"][,"estimate"],
+                      poolPred[,"pooled"][,"term"])
   
-  ## Fit the prediction model
-  predModel = lm(Y ~ X1IMP*X2, data = dTrain)
-  return(list("impModel" = impModelDeployment,
+  return(list("impModel" = impModel,
               "predModel" = predModel))
 }
 
-
-
 PredictSingleConditionalImputation = function(modelSCI, dTest){
-  dTest[["X1IMP"]] = dTest[["X1OBS"]]
-  dTest[dTest[["M1"]] == 1,"X1IMP"] = predict(modelSCI[["impModel"]],
-                                              newdata = dTest[dTest[["M1"]] == 1,])
-  return(predict(modelSCI[["predModel"]], newdata = dTest))
+  M1 = dTest[["M1"]]
+  X2 = dTest[["X2"]]
+  X1OBS = dTest[["X1OBS"]]
+  X1IMP = ifelse(M1 == 1,
+                 cbind(1,X2) %*% modelSCI[["impModel"]],
+                 X1OBS)
+  pred = as.numeric(cbind(1,X1IMP,X2,X1IMP*X2) %*% modelSCI[["predModel"]])
+  return(pred)
 }
 
 
