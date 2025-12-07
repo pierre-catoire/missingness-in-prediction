@@ -69,12 +69,9 @@ for(model in names(phi)){
     dTest = SimulateDataContinuous(n,theta,phi[[model]],missCoef, n_mc = 1e4, type = "test")
     
     # --- store the Reference Probabilities, the outcome and the missingness indicator --- #
-    predictions[[model]][[i]][["ORACLE_MU"]] = dTest[["ORACLE_MU"]]
-    predictions[[model]][[i]][["ORACLE_MC"]] = dTest[["ORACLE_MC"]]
-    predictions[[model]][[i]][["PRAGMATIC_MU"]] = dTest[["PRAGMATIC_MU"]]
-    predictions[[model]][[i]][["PRAGMATIC_MC"]] = dTest[["PRAGMATIC_MC"]]
-    predictions[[model]][[i]][["Y"]] = dTest[["Y"]]
-    predictions[[model]][[i]][["M1"]] = dTest[["M1"]]
+    for(var in c("ORACLE_MU","ORACLE_MC","PRAGMATIC_MU","PRAGMATIC_MC","Y","M1")){
+      predictions[[model]][[i]][[var]] = dTest[[var]]
+    }
     
     # --- Store the datasets ---
     datasetList[[model]][["TRAIN"]][[i]] = dTrain
