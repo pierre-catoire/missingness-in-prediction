@@ -6,6 +6,14 @@ import numpy as np
 import warnings
 import scripts.python.cc01Data as ccData
 import scripts.python.cc02methods as ccMethods
+from pathlib import Path
+
+# Creating subfolders for storing outputs
+ROOT = Path(__file__).resolve().parent
+base = ROOT / "outputs" / "discrete"
+subfolders = ["datasets", "plots", "tables"]
+for folder in subfolders:
+    (base / folder).mkdir(parents=True, exist_ok=True)
 
 rd.seed(42)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -35,7 +43,7 @@ dfList = []
 for modelLabel in modelsDict.keys():
     startModelTime = time.time()
 
-    for missCoef in np.linspace(0, 0.7, 701):
+    for missCoef in np.linspace(0, 0.7, 3):
         startMissCoefTime = time.time()
         mod = modelsDict[modelLabel]
         ccData.setTheta(mod, theta)
@@ -79,4 +87,4 @@ for modelLabel in modelsDict.keys():
     print(f"Model {modelLabel} time: {elapsedModel:.4f} seconds")
     
 dfSim = pd.concat(dfList, axis=0, ignore_index=True)
-dfSim.to_csv("saveDataDiscrete.csv")
+dfSim.to_csv("outputs/discrete/datasets/saveDataDiscrete.csv", index=False)

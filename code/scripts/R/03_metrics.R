@@ -1,7 +1,7 @@
 ms = function(x,ref,na.rm=T){mean((x-ref)^2, na.rm = na.rm)}
 
 computePerformanceMetrics = function(predictions,
-                                     methodsKeys = c("PS","CCS","MARG","SCI","SCIMI","MI","MIMI"),
+                                     methodsKeys = c("PS","CCS","MARG","MARGMI","SCI","SCIMI","MI","MIMI"),
                                      references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                      metrics = c("MSPE_OMU", "MSPE_OMC","MSE"),
                                      groups = c("ALL","COMPLETE","INCOMPLETE"),

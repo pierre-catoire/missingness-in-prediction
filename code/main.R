@@ -14,6 +14,7 @@ message("Number of cores: ", detectCores())
 dir.create("outputs/continuous/datasets", recursive = T)
 dir.create("outputs/continuous/tables", recursive = T)
 dir.create("outputs/continuous/plots", recursive = T)
+dir.create("outputs/continuous/Rimages", recursive = T)
 
 # --- Simulation parameters ---
 
@@ -29,7 +30,7 @@ phi = list("M1" = c(0,0,0,0),
            "M4" = c(0,2,0,-2),
            "M5" = c(0,0,0,1))
 
-missCoefs = seq(0,0.7,by = 0.1)
+missCoefs = seq(0,0.7,by = 0.001)
 
 methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                                "predict" = PredictPatternSubmodels),
@@ -96,7 +97,7 @@ for(model in names(phi)){
 }
 
 # --- Save the datasets ---
-simulated_datasets = MergeDatasets(datasetList,missCoefs,predictions)
+simulated_datasets = MergeDatasets(datasetList,missCoefs)
 write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_datasets_continuous.csv")
 
 # --- Compute the performance metrics ---
@@ -104,9 +105,9 @@ performanceMetrics = computePerformanceMetrics(predictions,
                                                writeTab =  F)
 
 # --- plot the results ---
-#plotPerformanceMetrics(performanceMetrics,
-#                       methodsKeys = c("MI","MARG","MARGMI","MIMI","UI","CCS","PS"),
-#                       opacity = .15,
-#                       savePDF = F)
+plotPerformanceMetrics(performanceMetrics,
+                       methodsKeys = c("SCI","MI","MARG","MARGMI","SCIMI","MIMI","UI","CCS","PS"),
+                       opacity = .15,
+                       savePDF = F)
 
-save.image("output_main_continuous.RData")
+save.image("outputs/continuous/Rimages/output_main_continuous.RData")

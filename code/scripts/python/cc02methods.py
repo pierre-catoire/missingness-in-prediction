@@ -1,6 +1,6 @@
 import pyagrum as gum
 import numpy as np
-from cc01Data import predictFromEvidence
+from scripts.python.cc01Data import predictFromEvidence
 
 def fitPatternSubmodels(dTrain):
     dag0 = gum.fastBN("X1OBS->Y<-X2")

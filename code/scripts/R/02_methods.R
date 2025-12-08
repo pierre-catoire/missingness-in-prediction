@@ -119,6 +119,90 @@ PredictMarginalisation = function(modelMarg, dTest){
   return(predicted)
 }
 
+FitMarginalisationMI = function(dTrain){
+  if(sum(dTrain[["M1"]]) == 0){
+    result = FitMarginalisation(dTrain)
+    result[["NO_MISSING_AT_ESTIMATION"]] = T
+    return(result)
+  }else{
+    # Note: need to consider interaction parameters
+    require(norm)
+    dMat = as.matrix(dTrain[,c("X1OBS","X2","M1","Y")])
+    s = prelim.norm(dMat)
+    theta = em.norm(s,showits=F)
+    params = getparam.norm(s,theta)
+    names(params[["mu"]]) = c("X1OBS","X2","M1","Y")
+    colnames(params[["sigma"]]) = c("X1OBS","X2","M1","Y")
+    rownames(params[["sigma"]]) = c("X1OBS","X2","M1","Y")
+    params[["NO_MISSING_AT_ESTIMATION"]] = F
+    return(params)
+  }
+}
+
+PredictMarginalisationMI = function(modelMargMI, dTest){
+  if(modelMargMI[["NO_MISSING_AT_ESTIMATION"]]){
+    if(sum(dTest[["M1"]]) > 0){
+      warning("Marginalisation with missingness indicators:
+              \nMissing values were absent at estimation but are present at deployment.
+              \nPrediction will be performed without missingness indicator")
+    }
+    return(PredictMarginalisation(modelMargMI, dTest))
+  }else{
+    mu     = modelMargMI[["mu"]]
+    Sigma  = modelMargMI[["sigma"]]
+    
+    #### -------------------------------------------------
+    #### 1. CASE M1 = 0 → predict E[Y|X1OBS, X2, M1=0]
+    #### -------------------------------------------------
+    # Variables in order: X1OBS, X2, M1, Y
+    
+    idx_X1X2M1 = c("X1OBS", "X2", "M1")
+    
+    # Σ_XX = Cov([X1OBS,X2,M1], [X1OBS,X2,M1])
+    sigma_XX = Sigma[idx_X1X2M1, idx_X1X2M1]
+    
+    # Σ_YX = Cov(Y, [X1OBS,X2,M1])
+    sigma_YX = Sigma["Y", idx_X1X2M1]
+    
+    # Center predictors
+    X_centered_full = cbind(
+      dTest[["X1OBS"]] - mu["X1OBS"],
+      dTest[["X2"]]    - mu["X2"],
+      dTest[["M1"]]    - mu["M1"]
+    )
+    
+    # Full conditional prediction
+    pred_full = as.vector(mu["Y"] + X_centered_full %*% solve(sigma_XX) %*% sigma_YX)
+    
+    
+    #### -------------------------------------------------
+    #### 2. CASE M1 = 1 → predict E[Y|X2,M1=1]
+    #### -------------------------------------------------
+    # This is marginalised over X1OBS.
+    
+    idx_X2M1 = c("X2", "M1")
+    
+    sigma_X2M1 = Sigma[idx_X2M1, idx_X2M1]      # Cov([X2,M1])
+    sigma_YX2M1 = Sigma["Y", idx_X2M1]          # Cov(Y,[X2,M1])
+    
+    X_centered_X2M1 = cbind(
+      dTest[["X2"]] - mu["X2"],
+      dTest[["M1"]] - mu["M1"]
+    )
+    
+    pred_marg = as.vector(mu["Y"] + 
+                            X_centered_X2M1 %*% solve(sigma_X2M1) %*% sigma_YX2M1)
+    
+    
+    #### -------------------------------------------------
+    #### 3. Combine predictions
+    #### -------------------------------------------------
+    predicted = pred_full
+    predicted[dTest$M1 == 1] = pred_marg[dTest$M1 == 1]
+    
+    return(predicted)
+  }
+}
 
 FitUnconditionalImputation = function(dTrain, mode = "mean", constant = 0){
   if(!(mode %in% c("mean","median","constant"))) stop("Mode must be \"mean\", \"median\" or \"constant\"")
