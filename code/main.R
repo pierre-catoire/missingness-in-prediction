@@ -106,7 +106,7 @@ performanceMetrics = computePerformanceMetrics(predictions,
 
 # --- plot the results ---
 plotPerformanceMetrics(performanceMetrics,
-                       methodsKeys = c("SCI","MI","MARG","MARGMI","SCIMI","MIMI","UI","CCS","PS"),
+                       methodsKeys = c("MI","MARG","MIMI","MARGMI","PS","CCS"),
                        opacity = .15,
                        savePDF = F)
 

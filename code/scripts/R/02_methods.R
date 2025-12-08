@@ -312,7 +312,8 @@ FitMultipleImputationMI = function(dTrain, m = 5, method = "norm"){
              method = method, predictorMatrix = pm, printFlag = F)
   result = list(m = m,
                 impModel = list(),
-                predModel = list())
+                impModelWithoutMI = list(), # Model used to impute X1OBS if no
+                predModel = list()) 
   for(impSet in 1:m){
     if(any(dTrain[["M1"]] == 1)){
       result[["impModel"]][[impSet]] = lm(formula("X1OBS ~ X2"),
@@ -320,23 +321,26 @@ FitMultipleImputationMI = function(dTrain, m = 5, method = "norm"){
     }else{
       result[["impModel"]][[impSet]] = NULL
     }
+    result[["impModelWithoutMI"]][[impSet]] = lm(formula("X1OBS~X2"), data = complete(imp,impSet))
     result[["predModel"]][[impSet]] = lm(formula("Y ~ X1OBS*X2*M1"),
                                          data = complete(imp,impSet))
   }
   return(result)
 }
 
+
 PredictMultipleImputationMI = function(modelMIMI, dTest){
   result = list()
   for(m in 1:modelMIMI[["m"]]){
     if(any(dTest[["M1"]] == 1)){
-      if(is.null(modelMIMI[["impModel"]][[m]])){
-        warning("Missing values are present at testing but not at estimation.
-              \n No prediction for individuals with missing values is possible.
-              \n NA will be returned")
+      if(length(modelMI$impModel) > 0){
+        dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMIMI[["impModel"]][[m]],
+                                                    newdata = dTest[dTest[["M1"]] == 1,])
+      }else{
+        warning("Missing values are present at testing but not at estimation.")
+        dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMIMI[["impModelWithoutMI"]][[m]],
+                                                    newdata = dTest[dTest[["M1"]] == 1,])
       }
-      dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMIMI[["impModel"]][[m]],
-                                                  newdata = dTest[dTest[["M1"]] == 1,])
     }
     result[[m]] = predict(modelMIMI[["predModel"]][[m]],
                           newdata = dTest[,c("X1OBS","X2","M1")])

@@ -25,15 +25,31 @@ library(parallel)
 #'
 #' @return the value of intercept for the logistic regression of phi such that
 #' E[M1=1] is approximately missCoef.
-TuneInterceptM1 = function(missCoef, phi, theta) {
-  E_X1 = theta[["X1"]][["mu"]]
-  E_X2 = theta[["X2"]][["mu"]]
-  E_Y  = theta[["Y"]][["beta"]][1] +
-    theta[["Y"]][["beta"]][2]*E_X1 +
-    theta[["Y"]][["beta"]][3]*E_X2
-  
-  phi0 = log((missCoef) / (1 - missCoef)) - sum(phi[2:4] * c(E_X1, E_X2, E_Y))
-  return(phi0)
+TuneInterceptM1 = function(missCoef, theta, phi,
+                           ns = 1e6, tol = 1e-4, maxIter = 200, lim = c(-12,4)){
+  get_pM1_given_intercept = function(intercept, model, theta, phi, ns = 1e6){
+    phi[1] = intercept
+    X1 = rnorm(ns,theta[["X1"]][["mu"]],theta[["X1"]][["sigma"]])
+    X2 = rnorm(ns,theta[["X1"]][["mu"]],theta[["X1"]][["sigma"]])
+    Y = cbind(1,X1,X2) %*% theta[["Y"]][["beta"]] + rnorm(ns,0,theta[["Y"]][["sigma"]])
+    pM1 = 1/(1+exp(-(cbind(1,X1,X2,Y) %*% phi)))
+    return(mean(pM1))
+  }
+  min = lim[1]
+  max = lim[2]
+  for(iter in 1:maxIter){
+    candidate = mean(c(min,max))
+    delta = get_pM1_given_intercept(candidate, model, theta, phi, ns = 1e6)-missCoef
+    if(abs(delta) < tol){
+      return(candidate)
+    }else if(delta>=0){
+      max = candidate
+    }else if(delta < 0){
+      min = candidate
+    }
+  }
+  warning("Tuning phi intercept failed. Returning the last iteration.")
+  return(candidate)
 }
 
 #' Compute E[Y|X2 = x2, M1 = 1]
@@ -143,7 +159,7 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5, n_mc = 1e4, type
   
   # --- set phi[1] to match the expected proportion of missingness missCoef ---
   # NB: if missCoef == 0, phi does not matter
-  if(missCoef > 0){phi[1] = TuneInterceptM1(missCoef, phi, theta)}
+  if(missCoef > 0){phi[1] = TuneInterceptM1(missCoef, theta, phi)}
   
   # --- Generate continuous predictors ---
   X1 = rnorm(n, mean = theta[["X1"]][["mu"]], sd = theta[["X1"]][["sigma"]])
