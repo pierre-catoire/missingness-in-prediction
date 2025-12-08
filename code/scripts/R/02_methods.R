@@ -333,7 +333,7 @@ PredictMultipleImputationMI = function(modelMIMI, dTest){
   result = list()
   for(m in 1:modelMIMI[["m"]]){
     if(any(dTest[["M1"]] == 1)){
-      if(length(modelMI$impModel) > 0){
+      if(length(modelMIMI[["impModel"]]) > 0){
         dTest[dTest[["M1"]] == 1,"X1OBS"] = predict(modelMIMI[["impModel"]][[m]],
                                                     newdata = dTest[dTest[["M1"]] == 1,])
       }else{
