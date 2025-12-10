@@ -6,6 +6,7 @@ computePerformanceMetrics = function(predictions,
                                      metrics = c("MSPE_OMU", "MSPE_OMC","MSE"),
                                      groups = c("ALL","COMPLETE","INCOMPLETE"),
                                      loessSeq = seq(0,0.7, by = 0.001),
+                                     missInd = "M1",
                                      span = 1,
                                      writeTab = T,
                                      thresholdLOESS = 0.1){
@@ -29,14 +30,14 @@ computePerformanceMetrics = function(predictions,
   
   for(model in names(predictions)){
     for(i in 1:length(predictions[[model]])){
-      performanceMetrics[[model]][["MISSPROP"]][i] = mean(predictions[[model]][[i]][["M1"]])
+      performanceMetrics[[model]][["MISSPROP"]][i] = 1-mean(as.numeric(dat[[missInd]] == 0))
       for(group in groups){
         if(group == "ALL"){
-          id = rep(T,length(predictions[[model]][[i]][["M1"]]))
+          id = rep(T,length(predictions[[model]][[i]][[missInd]]))
         }else if(group == "COMPLETE"){
-          id = (predictions[[model]][[i]][["M1"]] == 0)
+          id = (predictions[[model]][[i]][[missInd]] == 0)
         }else if(group == "INCOMPLETE"){
-          id = (predictions[[model]][[i]][["M1"]] == 1)
+          id = (predictions[[model]][[i]][[missInd]] == 1)
         }
         
         for(metric in c("MSPE_OMU", "MSPE_OMC","MSE")){
@@ -105,11 +106,12 @@ dataset2performanceMetrics = function(simulated_datasets,
                                       metrics = c("MSPE_OMU", "MSPE_OMC","MSE"),
                                       groups = c("ALL","COMPLETE","INCOMPLETE"),
                                       loessSeq = seq(0,0.7, by = 0.001),
+                                      missInd = "M1",
                                       span = 1,
-                                      writeTab = T){
+                                      writeTab = F){
   
   performanceMetrics = list("LOESSSEQ" = loessSeq)
-  for(model in names(predictions)){
+  for(model in unique(simulated_datasets[["MODEL"]])){
     performanceMetrics[[model]] = list("ALL" = list(),
                                        "COMPLETE" = list(),
                                        "INCOMPLETE" = list(),
@@ -131,14 +133,14 @@ dataset2performanceMetrics = function(simulated_datasets,
     
     for(sep in separators){
       dat = simulated_datasets[simulated_datasets[["MODEL"]] == model & simulated_datasets[[identifier]] == sep & simulated_datasets[["SET"]] == "TEST",]
-      performanceMetrics[[model]][["MISSPROP"]][i] = mean(dat[["M1"]])
+      performanceMetrics[[model]][["MISSPROP"]][i] = 1-mean(as.numeric(dat[[missInd]] == 0))
       for(group in groups){
         if(group == "ALL"){
-          id = rep(T,length(dat[["M1"]]))
+          id = rep(T,length(dat[[missInd]]))
         }else if(group == "COMPLETE"){
-          id = (dat[["M1"]] == 0)
+          id = (dat[[missInd]] == 0)
         }else if(group == "INCOMPLETE"){
-          id = (dat[["M1"]] == 1)
+          id = (dat[[missInd]] == 1)
         }
         
         for(metric in c("MSPE_OMU", "MSPE_OMC","MSE")){
@@ -164,32 +166,39 @@ dataset2performanceMetrics = function(simulated_datasets,
       for(metric in metrics){
         if(writeTab){
           tabPoints = data.frame("MISSPROP" = performanceMetrics[[model]][["MISSPROP"]])
-          tabLoess  = data.frame("MISSPROP" = loessSeq)
+          if(identifier == "MISSCOEF"){
+            tabLoess  = data.frame("MISSPROP" = loessSeq)
+          }
         }
         
         for(methodKey in c(methodsKeys, references)){
-          perfPoints = performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]]
-          missProps = performanceMetrics[[model]][["MISSPROP"]]
-          
-          # --- don't fit LOESS on the lowest values for incomplete cases, as outliers produce 
-          if(group == "INCOMPLETE"){
-            slicer = missProps > thresholdLOESS
-            missProps = missProps[slicer]
-            perfPoints = perfPoints[slicer]
-          }
-          loessFit = loess(perfPoints ~ missProps,
-                           control = loess.control(surface = "direct"),
-                           span = span)
-          loessPred = predict(loessFit, loessSeq)
-          performanceMetrics[[model]][[group]][[metric]][[methodKey]][["LOESS"]] = loessPred
-          if(writeTab){
-            tabPoints[[methodKey]] = performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]]
-            tabLoess[[methodKey]] = loessPred
+          if(identifier == "MISSCOEF"){
+            perfPoints = performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]]
+            missProps = performanceMetrics[[model]][["MISSPROP"]]
+            
+            # --- don't fit LOESS on the lowest values for incomplete cases, as outliers produce 
+            if(group == "INCOMPLETE"){
+              slicer = missProps > thresholdLOESS
+              missProps = missProps[slicer]
+              perfPoints = perfPoints[slicer]
+            }
+            loessFit = loess(perfPoints ~ missProps,
+                             control = loess.control(surface = "direct"),
+                             span = span)
+            loessPred = predict(loessFit, loessSeq)
+            performanceMetrics[[model]][[group]][[metric]][[methodKey]][["LOESS"]] = loessPred
+            if(writeTab){
+              tabPoints[[methodKey]] = performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]]
+              tabLoess[[methodKey]] = loessPred
+            }
           }
         }
         if(writeTab == T){
           write.csv(tabPoints, file = paste("outputs/continuous/tables/table",model,group,metric,"points.csv",sep = "_"))
-          write.csv(tabLoess, paste("outputs/continuous/tables/table",model,group,metric,"loess.csv",sep = "_"))
+          
+          if(identifier == "MISSCOEF"){
+            write.csv(tabLoess, paste("outputs/continuous/tables/table",model,group,metric,"loess.csv",sep = "_"))
+          }
         }
       }
     }
