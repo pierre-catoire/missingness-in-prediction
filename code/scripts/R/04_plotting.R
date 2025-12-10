@@ -4,9 +4,12 @@ plotPerformanceMetrics = function(performanceMetrics,
                                   methodsKeys = c("SCI","MI","MARG","SCIMI","MIMI","UI","PS","CCS"),
                                   graphParameters = NULL,
                                   opacity = 1,
-                                  ylims = list("MSPE_OMU" = c(0,1.5),
-                                               "MSPE_OMC" = c(0,1.5),
-                                               "MSE" = c(0,5)),
+                                  ylims = list("MSPE_OMU" = list("ALL" = c(0,1.5),
+                                                                 "SUBGROUPS" = c(0,3)),
+                                               "MSPE_OMC" = list("ALL" = c(0,1.5),
+                                                                 "SUBGROUPS" = c(0,3)),
+                                               "MSE" = list("ALL" = c(0,5),
+                                                            "SUBGROUPS" = c(0,10))),
                                   models = c("M1","M2","M3","M4","M5"),
                                   references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                   metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
@@ -116,7 +119,7 @@ plotPerformanceMetrics = function(performanceMetrics,
                xlab = "Missingness proportion",
                ylab = metricsLabels[metric],
                xlim = c(0, 0.7), 
-               ylim = ylims[[metric]])
+               ylim = ylims[[metric]][[analysis]])
           title(main = paste(modelLabels[model], analysisGroupLabels[analysisGroup], sep = ", "))
           
           for(methodKey in c(methodsKeys,references)){
