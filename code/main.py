@@ -44,7 +44,7 @@ dfList = []
 for modelLabel in modelsDict.keys():
     startModelTime = time.time()
 
-    for missCoef in np.linspace(0, 0.7, 20):
+    for missCoef in np.linspace(0, 0.7, 701):
         startMissCoefTime = time.time()
         mod = modelsDict[modelLabel]
         ccData.setTheta(mod, theta)
