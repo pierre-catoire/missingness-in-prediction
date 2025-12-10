@@ -76,7 +76,6 @@ for modelLabel in modelsDict.keys():
         dTest["PRAGMATIC_MC"] = np.where(dTest["M1"] == "0", probY_X1X2M1, probY_X2M1)
 
         for methodKey in methodsDict.keys():
-            predModel = ccMethods.fitPatternSubmodels(dTrain)
             predModel = methodsDict[methodKey]["fit"](dTrain)
             dTest[methodKey] = methodsDict[methodKey]["predict"](predModel, dTest)
         
