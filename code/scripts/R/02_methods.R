@@ -7,8 +7,15 @@
 # - perform the prediction on a testing set
 
 # Preamble
-require(tidyverse)
-require(mice)
+load_package = function(pkg){
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+load_package("tidyverse")
+load_package("mice")
 
 # Functions
 FitPatternSubmodels = function(dTrain){
