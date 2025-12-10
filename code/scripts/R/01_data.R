@@ -8,8 +8,15 @@
 #   - approximate the oracle and pragmatic targets
 
 # --- Preamble ---
-library(tidyverse)
-library(parallel)
+load_package = function(pkg){
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+load_package("tidyverse")
+load_package("parallel")
 
 # --- Functions ---
 
