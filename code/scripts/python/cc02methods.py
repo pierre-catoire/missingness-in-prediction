@@ -8,10 +8,16 @@ def fitPatternSubmodels(dTrain):
     learner.useSmoothingPrior()
     mod0 = learner.learnParameters(dag0.dag())
 
-    dag1 = gum.fastBN("X2->Y")
-    learner = gum.BNLearner(dTrain[dTrain["M1"] == "1"], dag1)
-    learner.useSmoothingPrior()
-    mod1 = learner.learnParameters(dag1.dag())
+    # TODO: manage cases where no missing cases at estimation
+    if dTrain["M1"].eq("0").all():
+        mod1 = mod0
+        print("No missing values at fitting for Pattern Submodels")
+    else:
+        dag1 = gum.fastBN("X2->Y")
+        learner = gum.BNLearner(dTrain[dTrain["M1"] == "1"], dag1)
+        learner.useSmoothingPrior()
+        mod1 = learner.learnParameters(dag1.dag())
+        
 
     return {"mod0": mod0,
             "mod1": mod1}
@@ -27,6 +33,7 @@ def predictPatternSubmodels(psModel, dTest):
 def fitCCS(dTrain):
     dag0 = gum.fastBN("X1OBS->Y<-X2")
     learner = gum.BNLearner(dTrain[dTrain["M1"] == "0"], dag0)
+    learner.useSmoothingPrior()
     mod0 = learner.learnParameters(dag0.dag())
 
     dag1 = gum.fastBN("X2->Y")

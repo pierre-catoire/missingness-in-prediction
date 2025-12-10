@@ -5,8 +5,9 @@ import random as rd # setting seed
 import numpy as np
 import warnings
 import scripts.python.cc01Data as ccData
-import scripts.python.cc02methods as ccMethods
+import scripts.python.cc02Methods as ccMethods
 from pathlib import Path
+import os
 
 # Creating subfolders for storing outputs
 ROOT = Path(__file__).resolve().parent
@@ -43,7 +44,7 @@ dfList = []
 for modelLabel in modelsDict.keys():
     startModelTime = time.time()
 
-    for missCoef in np.linspace(0, 0.7, 3):
+    for missCoef in np.linspace(0, 0.7, 1):
         startMissCoefTime = time.time()
         mod = modelsDict[modelLabel]
         ccData.setTheta(mod, theta)
@@ -75,6 +76,7 @@ for modelLabel in modelsDict.keys():
         dTest["PRAGMATIC_MC"] = np.where(dTest["M1"] == "0", probY_X1X2M1, probY_X2M1)
 
         for methodKey in methodsDict.keys():
+            predModel = ccMethods.fitPatternSubmodels(dTrain)
             predModel = methodsDict[methodKey]["fit"](dTrain)
             dTest[methodKey] = methodsDict[methodKey]["predict"](predModel, dTest)
         
@@ -87,4 +89,8 @@ for modelLabel in modelsDict.keys():
     print(f"Model {modelLabel} time: {elapsedModel:.4f} seconds")
     
 dfSim = pd.concat(dfList, axis=0, ignore_index=True)
-dfSim.to_csv("outputs/discrete/datasets/saveDataDiscrete.csv", index=False)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+save_dir = os.path.join(BASE_DIR, "outputs", "discrete", "datasets")
+save_path = os.path.join(save_dir, "saveDataDiscrete.csv")
+dfSim.to_csv(save_path, index=False)
