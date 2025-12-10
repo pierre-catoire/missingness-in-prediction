@@ -215,31 +215,6 @@ SimulateDataContinuous = function(n, theta, phi, missCoef = .5, n_mc = 1e4, type
   }
 }
 
-#' Merge the simulated datasets
-#'
-#' @param datasetList a list of simulated datasets
-#' @param missCoefs the vectors of coefficients for missingness proportion
-#'
-#' @return a data.frame of merged simulated datasets
-MergeDatasets = function(datasetList,
-                         missCoefs){
-  result = list()
-  i = 1
-  for(model in names(datasetList)){
-    for(i in 1:length(datasetList[[model]][["TRAIN"]])){
-      dTrain = datasetList[[model]][["TRAIN"]][[i]]
-      dTrain[["SET"]] = "TRAIN"
-      dTest = datasetList[[model]][["TEST"]][[i]]
-      dTest[["SET"]] = "TEST"
-      dat = dplyr::bind_rows(dTrain,dTest)
-      dat[["MODEL"]] = model
-      dat[["MISSCOEF"]] = missCoef
-      result[[i]] = dat
-    }
-  }
-  return(do.call(rbind, result))
-}
-
 #' Compute E[Y | X1, X2, M1]
 #'
 #' This function computes the expected value of Y given X1, X2 and M1, which

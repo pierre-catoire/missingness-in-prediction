@@ -1,9 +1,10 @@
-source("scripts/R/01_data.R")
-source("scripts/R/02_methods.R")
-source("scripts/R/03_metrics.R")
-source("scripts/R/04_plotting.R")
+source("code/scripts/R/01_data.R")
+source("code/scripts/R/02_methods.R")
+source("code/scripts/R/03_metrics.R")
+source("code/scripts/R/04_plotting.R")
 
 library(parallel)
+library(dplyr)
 
 set.seed(42)
 
@@ -30,7 +31,7 @@ phi = list("M1" = c(0,0,0,0),
            "M4" = c(0,2,0,-2),
            "M5" = c(0,0,0,1))
 
-missCoefs = seq(0,0.7,by = 0.001)
+missCoefs = seq(0,0.7,by = 0.7)
 
 methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                                "predict" = PredictPatternSubmodels),
@@ -55,12 +56,10 @@ metrics = c("MSPE_OMU","MSPE_OMC","MSE")
 
 datasetList = list()
 predictions = list()
+iStorage = 1
 
 for(model in names(phi)){
   startModel = Sys.time()
-  datasetList[[model]] = list("TRAIN" = list(),
-                              "TEST" = list())
-  
   predictions[[model]] = list()
   
   for(i in 1:length(missCoefs)){
@@ -76,10 +75,6 @@ for(model in names(phi)){
       predictions[[model]][[i]][[var]] = dTest[[var]]
     }
     
-    # --- Store the datasets ---
-    datasetList[[model]][["TRAIN"]][[i]] = dTrain
-    datasetList[[model]][["TEST"]][[i]] = dTest
-    
     # --- Apply each prediction algorithm ---
     for(methodKey in names(methodsList)){
       # --- Fitting the model on dTrain
@@ -88,7 +83,18 @@ for(model in names(phi)){
       # --- Predict on dTest ---
       predicted = methodsList[[methodKey]][["predict"]](mod,dTest[,c("X1OBS","X2",'M1')])
       predictions[[model]][[i]][[methodKey]] = predicted
+      dTest[[methodKey]] = predicted
     }
+    
+    # --- Store the datasets ---
+    dTrain[["SET"]] = "TRAIN"
+    dTest[["SET"]] = "TEST"
+    dSim = dplyr::bind_rows(dTrain, dTest)
+    dSim[["MISSCOEF"]] = missCoef
+    dSim[["MODEL"]] = model
+    datasetList[[iStorage]] = dSim
+    iStorage = iStorage + 1
+    
     message("Model: ", model, 
             ", \t MissCoef: ", format(round(missCoef, 3), nsmall = 3), 
             ", \t Set time: ", format(round(Sys.time()-startSet, 3), nsmall = 3))
@@ -97,7 +103,7 @@ for(model in names(phi)){
 }
 
 # --- Save the datasets ---
-simulated_datasets = MergeDatasets(datasetList,missCoefs)
+simulated_datasets = dplyr::bind_rows(datasetList)
 write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_datasets_continuous.csv")
 
 # --- Compute the performance metrics ---
@@ -110,4 +116,4 @@ plotPerformanceMetrics(performanceMetrics,
                        opacity = .15,
                        savePDF = F)
 
-save.image("outputs/continuous/Rimages/output_main_continuous.RData")
+# save.image("outputs/continuous/Rimages/output_main_continuous.RData")
