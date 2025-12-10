@@ -32,7 +32,7 @@ dir.create("outputs/Rimages", recursive = T)
 
 #-------------------------------------------------------#
 #                                                       #
-#                Continuous variables                   #
+#     Simulate and predict continuous variables         #
 #                                                       #
 #-------------------------------------------------------#
 
@@ -129,12 +129,13 @@ for(model in names(phi)){
 }
 
 # --- Save the datasets ---
+
 simulated_datasets = dplyr::bind_rows(datasetList)
-# write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_datasets_continuous.csv")
+write.csv(as.data.frame(simulated_datasets), file = "code/outputs/continuous/datasets/simulated_datasets_continuous.csv")
 
 #-------------------------------------------------------#
 #                                                       #
-#                  Continuous variables                 #
+#             Render continuous variables               #
 #                                                       #
 #-------------------------------------------------------#
 
