@@ -77,7 +77,7 @@ methodsDict = {"PS": {"fit": ccMethodsM6M7.fitPatternSubmodelsM6M7, "predict": c
 
 dfList = []
 
-nSim = 1
+nSim = 100
 N = 1000
 
 for modelLabel in modelsDict.keys():
