@@ -1,9 +1,22 @@
-source("code/scripts/R/01_data.R")
+#-------------------------------------------------------#
+#                                                       #
+#                       Header                          #
+#                                                       #
+#-------------------------------------------------------#
+
+# --- Load the scripts ---
+
+source("scripts/R/01_data.R")
 source("scripts/R/02_methods.R")
 source("scripts/R/03_metrics.R")
 source("scripts/R/04_plotting.R")
 
+# --- Set the seed for reproducible results ---
+
 set.seed(42)
+
+# --- Get the number of cores ---
+# (simulation of datasets for continuous variables are parallelised)
 
 message("Number of cores: ", detectCores())
 
@@ -12,7 +25,10 @@ message("Number of cores: ", detectCores())
 dir.create("outputs/continuous/datasets", recursive = T)
 dir.create("outputs/continuous/tables", recursive = T)
 dir.create("outputs/continuous/plots", recursive = T)
-dir.create("outputs/continuous/Rimages", recursive = T)
+dir.create("outputs/discrete/datasets", recursive = T)
+dir.create("outputs/discrete/tables", recursive = T)
+dir.create("outputs/discrete/plots", recursive = T)
+dir.create("outputs/Rimages", recursive = T)
 
 #-------------------------------------------------------#
 #                                                       #
@@ -36,6 +52,8 @@ phi = list("M1" = c(0,0,0,0),
 
 missCoefs = seq(0,0.7,by = 0.001)
 
+# --- Methods tested ---
+
 methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                                "predict" = PredictPatternSubmodels),
                    "CCS" = list("fit" = FitCompleteCasesSubmodels,
@@ -55,11 +73,16 @@ methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                    "MIMI" = list("fit" = FitMultipleImputationMI,
                                  "predict" = PredictMultipleImputationMI))
 
+# --- Performance metrics measured ---
 metrics = c("MSPE_OMU","MSPE_OMC","MSE")
+
+# --- Initialisation ---
 
 datasetList = list()
 predictions = list()
 iStorage = 1
+
+# --- Loop ---
 
 for(model in names(phi)){
   startModel = Sys.time()
@@ -107,7 +130,13 @@ for(model in names(phi)){
 
 # --- Save the datasets ---
 simulated_datasets = dplyr::bind_rows(datasetList)
-write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_datasets_continuous.csv")
+# write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_datasets_continuous.csv")
+
+#-------------------------------------------------------#
+#                                                       #
+#                  Continuous variables                 #
+#                                                       #
+#-------------------------------------------------------#
 
 # --- Compute the performance metrics ---
 performanceMetrics = computePerformanceMetrics(predictions,
@@ -122,6 +151,20 @@ plotPerformanceMetrics(performanceMetrics,
 #-------------------------------------------------------#
 #                                                       #
 #         Discrete variables - Models 1 to 5            #
+#                                                       #
+#-------------------------------------------------------#
+
+simulated_datasets_discrete = read.csv("code/outputs/discrete/datasets/saveDataDiscrete.csv")
+performanceMetricsDiscrete = dataset2performanceMetrics(simulated_datasets_discrete,
+                                                        methodsKeys = c("MARG","MARGMI","PS","MIA","CCS"),
+                                                        identifier = "MISSCOEF", missInd = "M")
+
+plotPerformanceMetrics(performanceMetricsDiscrete,
+                       opacity = .5,
+                       savePDF = F)
+#-------------------------------------------------------#
+#                                                       #
+#         Discrete variables - Models 6 and 7           #
 #                                                       #
 #-------------------------------------------------------#
 
@@ -143,4 +186,4 @@ plotPerformanceMetricsM6M7(performanceMetricsDiscreteM6M7,
 
 
 # --- save the final images ---
-save.image("outputs/continuous/Rimages/output_main_continuous.RData")
+# save.image("outputs/Rimages/output_main_continuous.RData")
