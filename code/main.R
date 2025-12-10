@@ -1,7 +1,7 @@
-source("code/scripts/R/01_data.R")
-source("code/scripts/R/02_methods.R")
-source("code/scripts/R/03_metrics.R")
-source("code/scripts/R/04_plotting.R")
+source("scripts/R/01_data.R")
+source("scripts/R/02_methods.R")
+source("scripts/R/03_metrics.R")
+source("scripts/R/04_plotting.R")
 
 library(parallel)
 library(dplyr)
@@ -31,7 +31,7 @@ phi = list("M1" = c(0,0,0,0),
            "M4" = c(0,2,0,-2),
            "M5" = c(0,0,0,1))
 
-missCoefs = seq(0,0.7,by = 0.7)
+missCoefs = seq(0,0.7,by = 0.001)
 
 methodsList = list("PS" = list("fit" = FitPatternSubmodels,
                                "predict" = PredictPatternSubmodels),
@@ -110,10 +110,10 @@ write.csv(simulated_datasets, file = "outputs/continuous/datasets/simulated_data
 performanceMetrics = computePerformanceMetrics(predictions,
                                                writeTab =  F)
 
-# --- plot the results ---
+# --- Plot the results ---
 plotPerformanceMetrics(performanceMetrics,
                        methodsKeys = c("MI","MARG","MIMI","MARGMI","PS","CCS"),
                        opacity = .15,
                        savePDF = F)
 
-# save.image("outputs/continuous/Rimages/output_main_continuous.RData")
+save.image("outputs/continuous/Rimages/output_main_continuous.RData")
