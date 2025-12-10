@@ -21,7 +21,8 @@ plotPerformanceMetrics = function(performanceMetrics,
                                   models = c("M1","M2","M3","M4","M5"),
                                   references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                   metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
-                                  savePDF = F){
+                                  savePDF = F,
+                                  storePath = "outputs/continuous/plots/plot"){
   
   if(is.null(graphParameters)){
     MC_colors = hue_pal(h = c(0, 90))(5)
@@ -110,7 +111,7 @@ plotPerformanceMetrics = function(performanceMetrics,
   for(model in models){
     for(analysis in c("ALL","SUBGROUPS")){
       if(savePDF){
-        pdf(paste(paste("outputs/continuous/plots/plot",model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
+        pdf(paste(paste(storePath,model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
       }
       if(analysis == "ALL"){
         analysisGroups = "ALL"
@@ -168,7 +169,8 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
                                       models = c("M6","M7"),
                                       references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                       metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
-                                      savePDF = F){
+                                      savePDF = F,
+                                      storePath = "outputs/discrete/plots/plot"){
   
   if(is.null(graphParameters)){
     MC_colors = hue_pal(h = c(0, 90))(6)
@@ -259,7 +261,7 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
   for(model in models){
     for(analysis in c("ALL","SUBGROUPS")){
       if(savePDF){
-        pdf(paste(paste("outputs/continuous/plots/plot",model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
+        pdf(paste(paste(storePath,model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
       }
       if(analysis == "ALL"){
         analysisGroups = "ALL"
@@ -278,7 +280,6 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
           for(methodKey in methodsKeys){
             dat[[methodKey]] = performanceMetrics[[model]][[analysisGroup]][[metric]][[methodKey]][["POINTS"]]
           }
-          print(analysisGroup)
           vioplot(dat,
                   frame.plot = FALSE,
                   col = cols,
