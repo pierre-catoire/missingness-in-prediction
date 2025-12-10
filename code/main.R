@@ -1,10 +1,7 @@
-source("scripts/R/01_data.R")
+source("code/scripts/R/01_data.R")
 source("scripts/R/02_methods.R")
 source("scripts/R/03_metrics.R")
 source("scripts/R/04_plotting.R")
-
-library(parallel)
-library(dplyr)
 
 set.seed(42)
 
@@ -16,6 +13,12 @@ dir.create("outputs/continuous/datasets", recursive = T)
 dir.create("outputs/continuous/tables", recursive = T)
 dir.create("outputs/continuous/plots", recursive = T)
 dir.create("outputs/continuous/Rimages", recursive = T)
+
+#-------------------------------------------------------#
+#                                                       #
+#                Continuous variables                   #
+#                                                       #
+#-------------------------------------------------------#
 
 # --- Simulation parameters ---
 
@@ -116,4 +119,28 @@ plotPerformanceMetrics(performanceMetrics,
                        opacity = .15,
                        savePDF = F)
 
+#-------------------------------------------------------#
+#                                                       #
+#         Discrete variables - Models 1 to 5            #
+#                                                       #
+#-------------------------------------------------------#
+
+# --- extract the results of the simulations in python
+
+simulated_datasets_discrete_M6M7 = read.csv("code/outputs/discrete/datasets/saveDataDiscreteM6M7.csv")
+performanceMetricsDiscreteM6M7 = dataset2performanceMetrics(simulated_datasets_discrete_M6M7,
+                                                            methodsKeys = c("MARG","MARGMI","PS","MIA","CCS"),
+                                                            identifier = "ITER", missInd = "M")
+plotPerformanceMetricsM6M7(performanceMetricsDiscreteM6M7,
+                           opacity = .5,
+                           savePDF = F)
+
+#-------------------------------------------------------#
+#                                                       #
+#                       Footer                          #
+#                                                       #
+#-------------------------------------------------------#
+
+
+# --- save the final images ---
 save.image("outputs/continuous/Rimages/output_main_continuous.RData")
