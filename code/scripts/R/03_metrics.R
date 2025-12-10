@@ -30,7 +30,7 @@ computePerformanceMetrics = function(predictions,
   
   for(model in names(predictions)){
     for(i in 1:length(predictions[[model]])){
-      performanceMetrics[[model]][["MISSPROP"]][i] = 1-mean(as.numeric(dat[[missInd]] == 0))
+      performanceMetrics[[model]][["MISSPROP"]][i] = 1-mean(as.numeric(predictions[[model]][[i]][[missInd]] == 0))
       for(group in groups){
         if(group == "ALL"){
           id = rep(T,length(predictions[[model]][[i]][[missInd]]))
@@ -50,7 +50,6 @@ computePerformanceMetrics = function(predictions,
           }
           
           for(methodKey in c(methodsKeys, references)){
-            message("Model: ", model, ", i:",i," Group: ", group, ", Metric: ", metric, ", MethodKey: ", methodKey)
             predMethod = predictions[[model]][[i]][[methodKey]][id]
             performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]][i] = ms(predMethod, refMetric)
           }
@@ -153,7 +152,6 @@ dataset2performanceMetrics = function(simulated_datasets,
           }
           
           for(methodKey in c(methodsKeys, references)){
-            message("Model: ", model, ", i:",i," Group: ", group, ", Metric: ", metric, ", MethodKey: ", methodKey)
             predMethod = dat[[methodKey]][id]
             performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]][i] = ms(predMethod, refMetric)
           }
