@@ -8,3 +8,5 @@ venv/
 __pycache__/
 .venv/
 missingness-in-prediction.Rproj
+renv/library/
+_site/
