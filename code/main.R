@@ -5,7 +5,7 @@
 #-------------------------------------------------------#
 
 # --- Load the scripts ---
-
+# setwd("code")
 source("scripts/R/01_data.R")
 source("scripts/R/02_methods.R")
 source("scripts/R/03_metrics.R")
@@ -147,7 +147,7 @@ performanceMetrics = computePerformanceMetrics(predictions,
 plotPerformanceMetrics(performanceMetrics,
                        methodsKeys = c("MI","MARG","MIMI","MARGMI","PS","CCS"),
                        opacity = .15,
-                       savePDF = F)
+                       writePDF = T)
 
 #-------------------------------------------------------#
 #                                                       #
@@ -155,14 +155,22 @@ plotPerformanceMetrics(performanceMetrics,
 #                                                       #
 #-------------------------------------------------------#
 
-simulated_datasets_discrete = read.csv("code/outputs/discrete/datasets/saveDataDiscrete.csv")
+simulated_datasets_discrete = read.csv("outputs/discrete/datasets/saveDataDiscrete.csv")
 performanceMetricsDiscrete = dataset2performanceMetrics(simulated_datasets_discrete,
                                                         methodsKeys = c("MARG","MARGMI","PS","MIA","CCS"),
-                                                        identifier = "MISSCOEF", missInd = "M")
+                                                        identifier = "MISSCOEF", missInd = "M1",
+                                                        thresholdLOESS = 0.1)
 
 plotPerformanceMetrics(performanceMetricsDiscrete,
-                       opacity = .5,
-                       savePDF = F)
+                       opacity = .2,
+                       writePDF = T,
+                       methodsKeys = c("MARG","PS","CCS","MIA","MARGMI"),
+                       ylims = list("MSPE_OMU" = list("ALL" = c(0,0.2),
+                                                      "SUBGROUPS" = c(0,0.5)),
+                                    "MSPE_OMC" = list("ALL" = c(0,0.2),
+                                                      "SUBGROUPS" = c(0,0.5)),
+                                    "MSE" = list("ALL" = c(0,0.5),
+                                                 "SUBGROUPS" = c(0,0.5))))
 #-------------------------------------------------------#
 #                                                       #
 #         Discrete variables - Models 6 and 7           #
@@ -171,13 +179,31 @@ plotPerformanceMetrics(performanceMetricsDiscrete,
 
 # --- extract the results of the simulations in python
 
-simulated_datasets_discrete_M6M7 = read.csv("code/outputs/discrete/datasets/saveDataDiscreteM6M7.csv")
+simulated_datasets_discrete_M6M7 = read.csv("outputs/discrete/datasets/saveDataDiscreteM6M7.csv")
 performanceMetricsDiscreteM6M7 = dataset2performanceMetrics(simulated_datasets_discrete_M6M7,
                                                             methodsKeys = c("MARG","MARGMI","PS","MIA","CCS"),
                                                             identifier = "ITER", missInd = "M")
 plotPerformanceMetricsM6M7(performanceMetricsDiscreteM6M7,
                            opacity = .5,
-                           savePDF = F)
+                           writePDF = T)
+
+simulated_datasets_discrete_M7 = read.csv("outputs/discrete/datasets/saveDataDiscreteM7.csv")
+performanceMetricsDiscreteM7 = dataset2performanceMetrics(simulated_datasets_discrete_M7,
+                                                            methodsKeys = c("MARG","MARGMI","PS","MIA","CCS"),
+                                                            identifier = "ITER", missInd = "M")
+plotPerformanceMetricsM6M7(performanceMetricsDiscreteM7,
+                           writePDF = T,
+                           opacity = .5,
+                           models = c("M7"),
+                           ylims = list("MSPE_OMU" = list("ALL" = c(0.015,0.025),
+                                                          "COMPLETE" = c(0,0.0015),
+                                                          "INCOMPLETE" = c(0.015,0.03)),
+                                        "MSPE_OMC" = list("ALL" = c(0.025,0.035),
+                                                          "COMPLETE" = c(0,0.0015),
+                                                          "INCOMPLETE" = c(0,0.005)),
+                                        "MSE" = list("ALL" = c(0.23,0.25),
+                                                     "COMPLETE" = c(0.215,0.26),
+                                                     "INCOMPLETE"= c(0.24,0.26))))
 
 #-------------------------------------------------------#
 #                                                       #

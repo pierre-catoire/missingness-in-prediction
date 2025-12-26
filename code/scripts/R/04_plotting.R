@@ -13,19 +13,22 @@ plotPerformanceMetrics = function(performanceMetrics,
                                   graphParameters = NULL,
                                   opacity = 1,
                                   ylims = list("MSPE_OMU" = list("ALL" = c(0,1.5),
-                                                                 "SUBGROUPS" = c(0,3)),
+                                                                 "COMPLETE" = c(0,3),
+                                                                 "INCOMPLETE" = c(0,3)),
                                                "MSPE_OMC" = list("ALL" = c(0,1.5),
-                                                                 "SUBGROUPS" = c(0,3)),
+                                                                 "COMPLETE" = c(0,3),
+                                                                 "INCOMPLETE" = c(0,3)),
                                                "MSE" = list("ALL" = c(0,5),
-                                                            "SUBGROUPS" = c(0,10))),
+                                                            "COMPLETE" = c(0,10),
+                                                            "INCOMPLETE" = c(0,10))),
                                   models = c("M1","M2","M3","M4","M5"),
                                   references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                   metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
-                                  savePDF = F,
+                                  writePDF = F,
                                   storePath = "outputs/continuous/plots/plot"){
   
   if(is.null(graphParameters)){
-    MC_colors = hue_pal(h = c(0, 90))(5)
+    MC_colors = hue_pal(h = c(0, 90))(6)
     MU_colors = hue_pal(h = c(180, 270))(4)
     graphParameters = list("PS" = list("label" = "Pattern Submodels",
                                        "color" = MC_colors[1],
@@ -72,12 +75,17 @@ plotPerformanceMetrics = function(performanceMetrics,
                                          "lty" = 1,
                                          "pch" = 16,
                                          "cex" = .5),
-                           "PRAGMATIC_MU" = list("label" = "MU probability (ref)",
+                           "MIA" = list("label" = "Missingness Incorporated as Attribute (MIA)",
+                                        "color" = MC_colors[6],
+                                        "lty" = 1,
+                                        "pch" = 16,
+                                        "cex" = .5),
+                           "PRAGMATIC_MU" = list("label" = "MU probability (reference)",
                                                  "color" = "darkblue",
                                                  "lty" = 2,
                                                  "pch" = 16,
                                                  "cex" = 0),
-                           "PRAGMATIC_MC" = list("label" = "MC probability (ref)",
+                           "PRAGMATIC_MC" = list("label" = "MC probability (reference)",
                                                  "color" = "darkred",
                                                  "lty" = 2,
                                                  "pch" = 16,
@@ -110,7 +118,7 @@ plotPerformanceMetrics = function(performanceMetrics,
   
   for(model in models){
     for(analysis in c("ALL","SUBGROUPS")){
-      if(savePDF){
+      if(writePDF){
         pdf(paste(paste(storePath,model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
       }
       if(analysis == "ALL"){
@@ -128,7 +136,7 @@ plotPerformanceMetrics = function(performanceMetrics,
                xlab = "Missingness proportion",
                ylab = metricsLabels[metric],
                xlim = c(0, 0.7), 
-               ylim = ylims[[metric]][[analysis]])
+               ylim = ylims[[metric]][[analysisGroup]])
           title(main = paste(modelLabels[model], analysisGroupLabels[analysisGroup], sep = ", "))
           
           for(methodKey in c(methodsKeys,references)){
@@ -151,7 +159,7 @@ plotPerformanceMetrics = function(performanceMetrics,
                  col= cols)
         }
       }
-      if(savePDF){dev.off()}
+      if(writePDF){dev.off()}
     }
   }
 }
@@ -161,15 +169,18 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
                                       graphParameters = NULL,
                                       opacity = 1,
                                       ylims = list("MSPE_OMU" = list("ALL" = c(0,0.04),
-                                                                     "SUBGROUPS" = c(0,0.08)),
+                                                                     "COMPLETE" = c(0,0.08),
+                                                                     "INCOMPLETE" = c(0,0.08)),
                                                    "MSPE_OMC" = list("ALL" = c(0,0.04),
-                                                                     "SUBGROUPS" = c(0,0.08)),
+                                                                     "COMPLETE" = c(0,0.08),
+                                                                     "INCOMPLETE" = c(0,0.08)),
                                                    "MSE" = list("ALL" = c(0.15,0.3),
-                                                                "SUBGROUPS" = c(0.15,0.3))),
+                                                                "COMPLETE" = c(0.15,0.3),
+                                                                "INCOMPLETE" = c(0.15,0.3))),
                                       models = c("M6","M7"),
                                       references = c("PRAGMATIC_MU","PRAGMATIC_MC"),
                                       metrics = c("MSPE_OMU","MSPE_OMC","MSE"),
-                                      savePDF = F,
+                                      writePDF = F,
                                       storePath = "outputs/discrete/plots/plot"){
   
   if(is.null(graphParameters)){
@@ -260,7 +271,7 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
   
   for(model in models){
     for(analysis in c("ALL","SUBGROUPS")){
-      if(savePDF){
+      if(writePDF){
         pdf(paste(paste(storePath,model,analysis, sep = "_"),".pdf",sep = ""), width = 14, height = 7)
       }
       if(analysis == "ALL"){
@@ -283,7 +294,7 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
           vioplot(dat,
                   frame.plot = FALSE,
                   col = cols,
-                  ylim = ylims[[metric]][[analysis]])
+                  ylim = ylims[[metric]][[analysisGroup]])
           for(reference in references){
             abline(h = mean(performanceMetrics[[model]][[analysisGroup]][[metric]][[reference]][["POINTS"]]),
                    col = graphParameters[[reference]][["color"]],
@@ -300,7 +311,7 @@ plotPerformanceMetricsM6M7 = function(performanceMetrics,
                  col = cols[references])
         }
       }
-      if(savePDF){dev.off()}
+      if(writePDF){dev.off()}
     }
   }
 }

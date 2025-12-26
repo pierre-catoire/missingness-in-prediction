@@ -1,0 +1,12 @@
+name: missingness-in-prediction
+title: missingness-in-prediction
+username: pierre-catoire
+account: pierre-catoire
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16318242
+bundleId: 11327281
+url: https://pierre-catoire.shinyapps.io/missingness-in-prediction/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

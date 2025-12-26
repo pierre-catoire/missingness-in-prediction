@@ -107,7 +107,8 @@ dataset2performanceMetrics = function(simulated_datasets,
                                       loessSeq = seq(0,0.7, by = 0.001),
                                       missInd = "M1",
                                       span = 1,
-                                      writeTab = F){
+                                      writeTab = F,
+                                      thresholdLOESS = 0.1){
   
   performanceMetrics = list("LOESSSEQ" = loessSeq)
   for(model in unique(simulated_datasets[["MODEL"]])){
@@ -142,7 +143,7 @@ dataset2performanceMetrics = function(simulated_datasets,
           id = (dat[[missInd]] == 1)
         }
         
-        for(metric in c("MSPE_OMU", "MSPE_OMC","MSE")){
+        for(metric in metrics){
           if(metric == "MSPE_OMU"){
             refMetric = dat[["ORACLE_MU"]][id]
           }else if(metric == "MSPE_OMC"){
@@ -155,9 +156,12 @@ dataset2performanceMetrics = function(simulated_datasets,
             predMethod = dat[[methodKey]][id]
             performanceMetrics[[model]][[group]][[metric]][[methodKey]][["POINTS"]][i] = ms(predMethod, refMetric)
           }
+          
         }
       }
       i = i+1
+      message("Model: ", model, ",\tsetIndex: ", sep)
+      
     }
     # Fit the LOESS regression
     for(group in groups){
